@@ -1,0 +1,26 @@
+appId: com.sumorw.notedesk
+productName: Sumora
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+asarUnpack: []
+compression: maximum
+win:
+  target:
+    - nsis
+    - portable
+  fileAssociations:
+    - ext: html
+      name: HTML 笔记
+      description: HTML 笔记文件
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Sumora
+  artifactName: ${productName}-Setup-${version}.${ext}
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}

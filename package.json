@@ -1,0 +1,51 @@
+{
+  "name": "sumorw",
+  "version": "0.0.0",
+  "description": "像 Typora 管理 Markdown 一样管理 HTML 笔记：文件树切换、应用内阅读、点文字即改，且不破坏 HTML 结构",
+  "main": "./out/main/index.js",
+  "author": "sumorw",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.web.config.ts",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "dist": "electron-vite build && electron-builder --config electron-builder.yml"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.0",
+    "iconv-lite": "^0.6.3",
+    "linkedom": "^0.18.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react-hooks": "^7.1.0",
+    "prettier": "^3.4.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.15.0",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

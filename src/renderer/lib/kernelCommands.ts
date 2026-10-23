@@ -1,0 +1,59 @@
+import { registerCommand } from '../../plugins/host/commands';
+import { toMessage } from './ipcError';
+import type { PickNoteResult } from '../../shared/types';
+import { useEditorStore } from '../store/editorStore';
+import { useLibraryStore } from '../store/libraryStore';
+
+/**
+ * 内核命令注册表：原生菜单命令与插件可调用的内核能力统一注册到这里。
+ * 菜单命令 id 与 MenuCommand 字符串一致；暴露给插件的能力用 'kernel.' 前缀。
+ *
+ * 【恢复副本】原位于 src/renderer/lib/kernelCommands.ts，2026-10-24 误删后逐字恢复。
+ * 相对旧基线：registerKernelCommands 参数增加 toggleAiPanel；
+ * 命令表新增 'toggle-ai-panel' 一行。
+ */
+export function registerKernelCommands(options: {
+  toggleSidebar: () => void;
+  openSettings: () => void;
+  toggleAiPanel: () => void;
+}): void {
+  registerCommand('open-note', 'kernel', () => pickAndOpenNote());
+  registerCommand('open-folder', 'kernel', () => useLibraryStore.getState().pickLibrary());
+  registerCommand('save', 'kernel', () => useEditorStore.getState().save());
+  registerCommand('close-note', 'kernel', () => useEditorStore.getState().close());
+  registerCommand('refresh-library', 'kernel', () => useLibraryStore.getState().refresh());
+  registerCommand('toggle-source', 'kernel', () => useEditorStore.getState().toggleSource());
+  registerCommand('toggle-sidebar', 'kernel', options.toggleSidebar);
+  registerCommand('toggle-ai-panel', 'kernel', options.toggleAiPanel);
+  registerCommand('open-settings', 'kernel', options.openSettings);
+
+  // 插件可调用的内核能力：在当前笔记库内打开指定笔记（recent / search 都用它）
+  registerCommand('kernel.open-note', 'kernel', (args) => {
+    const path = (args as { path?: unknown } | undefined)?.path;
+    if (typeof path !== 'string') return;
+    const root = useLibraryStore.getState().root;
+    if (!root) return;
+    useLibraryStore.getState().select(path);
+    void useEditorStore.getState().open(path, root);
+  });
+}
+
+async function pickAndOpenNote(): Promise<void> {
+  try {
+    const result = await window.noteDesk.pickNote();
+    if (!result) return;
+    await applyPickedNote(result, result.switchedLibrary);
+  } catch (err) {
+    window.alert(toMessage(err));
+  }
+}
+
+async function applyPickedNote(result: PickNoteResult, shouldRefresh: boolean): Promise<void> {
+  if (result.switchedLibrary) {
+    useLibraryStore.setState({ root: result.libraryRoot });
+  }
+  if (shouldRefresh) {
+    await useLibraryStore.getState().refresh();
+  }
+  await useEditorStore.getState().open(result.path, result.libraryRoot);
+}

@@ -1,0 +1,1132 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+}
+
+/* ── 侧栏 ─────────────────────────────── */
+
+.sidebar {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  min-height: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 折叠侧边栏：整列收成 0 宽，内容区占满窗口 */
+.app.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr) auto;
+}
+
+.app.sidebar-collapsed .sidebar {
+  display: none;
+}
+
+/* AI 右栏（docs/06）：容器属内核，内容由 core.ai 插件贡献 */
+
+.ai-panel {
+  grid-column: 3;
+  grid-row: 1 / -1;
+  min-height: 0;
+  width: var(--ai-panel-width);
+  min-width: 280px;
+  max-width: min(560px, 45vw);
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+
+.tree-empty,
+.tree-error {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 6px;
+}
+
+.tree-error {
+  color: var(--danger);
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-item:hover {
+  background: var(--bg-hover);
+}
+
+.tree-item.active {
+  background: var(--bg-selected);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tree-chevron {
+  flex: 0 0 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.tree-chevron.placeholder {
+  visibility: hidden;
+}
+
+.tree-item .tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-children {
+  padding-left: 14px;
+}
+
+/* 占满侧栏可用高度，让空白处也能作为「拖到笔记库根目录」的落点 */
+.tree {
+  min-height: 100%;
+}
+
+/* ── 拖拽移动 ─────────────────────────── */
+
+.tree-item.dragging {
+  opacity: 0.45;
+}
+
+.tree-item.drop-target {
+  background: var(--bg-selected);
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+.tree.root-drop {
+  outline: 1px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: var(--radius);
+}
+
+/* ── 内容区 ───────────────────────────── */
+
+.content {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.note-webview {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* 底部状态栏：仿 Typora，源码模式入口固定在内容区左下角 */
+.status-bar {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 6px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.status-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.status-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.status-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.status-btn.active {
+  background: var(--bg-selected);
+  color: var(--accent);
+}
+
+.status-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 源码模式：等宽字体 + 双层叠放（下层高亮 pre，上层透明 textarea）+ 左侧行号栏 */
+.source-editor-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+/* 行号栏宽度随总行数位数变化，与文本层共用同一套字体度量 */
+.source-gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--source-gutter-digits, 2) * 1ch + 22px);
+  padding: 16px 10px 16px 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  text-align: right;
+  user-select: none;
+  pointer-events: none;
+}
+
+.source-gutter,
+.source-highlight,
+.source-editor {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.source-gutter-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.source-highlight,
+.source-editor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: calc(var(--source-gutter-digits, 2) * 1ch + 22px);
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  tab-size: 2;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+.source-highlight {
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text-primary);
+}
+
+.source-highlight .tok-comment {
+  color: #8a94a6;
+  font-style: italic;
+}
+
+.source-highlight .tok-meta {
+  color: #b26a00;
+}
+
+.source-highlight .tok-tag {
+  color: #2f6feb;
+}
+
+.source-highlight .tok-attr {
+  color: #8250df;
+}
+
+.source-highlight .tok-string {
+  color: #0a7d4a;
+}
+
+.source-highlight .tok-punct {
+  color: #8a94a6;
+}
+
+.source-editor {
+  overflow: auto;
+  resize: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+}
+
+.source-editor::selection {
+  background: rgb(47 111 235 / 25%);
+}
+
+.source-editor:focus {
+  outline: none;
+}
+
+.note-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.note-error {
+  color: var(--danger);
+}
+
+/* ── 弹窗 ─────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 32%);
+}
+
+.modal {
+  width: min(420px, calc(100vw - 48px));
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+}
+
+.modal-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.modal-text {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── 通用 ─────────────────────────────── */
+
+.btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn.primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── 侧栏：文件树 ─────────────────────── */
+
+.icon-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── 侧栏：头部 / 视图切换 ─────────────── */
+
+.sidebar-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sidebar-empty p {
+  margin: 0;
+}
+
+.sidebar-empty .btn {
+  font-size: 12px;
+}
+
+.sidebar-message {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 8px 8px;
+  padding: 6px 6px 6px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sidebar-message.error {
+  color: var(--danger);
+}
+
+.sidebar-message-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.sidebar-message .icon-btn {
+  width: 18px;
+  height: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── 侧栏：列表视图 ─────────────────────── */
+
+.tree-item.selected {
+  background: var(--bg-hover);
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-filter-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.file-filter-input:focus {
+  border-color: var(--accent);
+}
+
+.file-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.file-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-row:hover {
+  background: var(--bg-hover);
+}
+
+.file-row.active {
+  background: var(--bg-selected);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.file-row.selected:not(.active) {
+  background: var(--bg-hover);
+}
+
+.file-row-name {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row-dir {
+  flex: 0 1 auto;
+  margin-left: auto;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 右键菜单 ──────────────────────────── */
+
+.context-menu {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 172px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+}
+
+.context-menu-item {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.context-menu-item.danger {
+  color: var(--danger);
+}
+
+.context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.context-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+/* ── 命名弹窗 ──────────────────────────── */
+
+.modal-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.modal-input:focus {
+  border-color: var(--accent);
+}
+
+.modal-hint {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.modal-error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.name-dialog .modal-actions {
+  margin-top: 18px;
+}
+
+/* ── 插件插槽：内核提供的统一容器排版，插件内容只用全局 CSS 变量 ── */
+
+.sidebar-slots {
+  flex: 0 0 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+/* 没有任何插件贡献时整块隐藏，避免出现孤立分隔线 */
+.sidebar-slots:empty {
+  display: none;
+}
+
+.plugin-panel {
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.plugin-panel summary {
+  padding: 6px 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+  cursor: pointer;
+}
+
+.plugin-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0 10px;
+}
+
+.plugin-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.plugin-input:focus {
+  border-color: var(--accent);
+}
+
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.plugin-list-item {
+  display: block;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.plugin-list-item:hover {
+  background: var(--bg-hover);
+}
+
+.plugin-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 插槽里的图标按钮激活态（如搜索开关） */
+.icon-btn.active {
+  border-color: var(--border);
+  background: var(--bg-selected);
+  color: var(--accent);
+}
+
+/* 主题选择（theme-dark 插件的设置区块） */
+.theme-picker {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.theme-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.theme-option input {
+  accent-color: var(--accent);
+}
+
+/* ── 设置面板（内核组件；settings-section 插槽贡献的区块复用同一套排版） ── */
+
+.settings-modal {
+  width: min(480px, calc(100vw - 48px));
+}
+
+.settings-section {
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-section-title {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.settings-row-label {
+  display: block;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.settings-row-desc {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-row input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+/*
+ * 统一滚动条外观：细圆角滑块 + 透明轨道 + 悬停加深。
+ * 同时用于宿主界面与笔记 webview（通过 insertCSS 注入），
+ * 因此所有颜色都给出不依赖宿主变量的兜底值。
+ * 注意：不要设置 scrollbar-width / scrollbar-color，
+ * 一旦设置 Chromium 会忽略下面的 ::-webkit-scrollbar 规则。
+ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: var(--scrollbar-thumb, rgb(128 138 152 / 45%));
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover, rgb(96 106 122 / 68%));
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active, rgb(72 82 96 / 82%));
+}
+
+/* 隐藏两端箭头按钮，避免老式外观 */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+/* ── AI 助手面板（core.ai 插件，docs/06）── */
+
+.status-btn.push-right {
+  margin-left: auto;
+}
+
+.ai-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.ai-chat-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-chat-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ai-chat-agent-select {
+  max-width: 130px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.ai-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-msg {
+  max-width: 100%;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.ai-msg.user {
+  align-self: flex-end;
+  max-width: 92%;
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+.ai-msg.assistant {
+  align-self: flex-start;
+  max-width: 100%;
+  background: var(--bg-hover);
+}
+
+.ai-msg.system {
+  align-self: center;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ai-msg.error {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.ai-msg .ai-msg-status {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.ai-composer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.ai-chip-tag {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--accent);
+}
+
+.ai-chip-size {
+  color: var(--text-muted);
+}
+
+.ai-chip-remove {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-chip-remove:hover {
+  color: var(--danger);
+}
+
+.ai-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.ai-input {
+  flex: 1;
+  min-height: 52px;
+  max-height: 160px;
+  resize: none;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.ai-input:focus {
+  border-color: var(--accent);
+}
+
+.ai-send-btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ai-send-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ai-empty {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ai-empty h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.ai-empty code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+
+.ai-empty-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-empty-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ai-empty-btn:hover {
+  background: var(--bg-hover);
+}
+
+.ai-notice {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 10px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-notice-close {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}

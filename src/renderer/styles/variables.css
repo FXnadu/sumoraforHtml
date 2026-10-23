@@ -1,0 +1,40 @@
+:root {
+  color-scheme: light;
+
+  --bg-app: #f6f7f9;
+  --bg-panel: #ffffff;
+  --bg-hover: #eef0f4;
+  --bg-selected: #e7eefc;
+  --border: #dfe3e8;
+  --text-primary: #1f2328;
+  --text-muted: #6b7280;
+  --accent: #2f6feb;
+  --accent-text: #ffffff;
+  --danger: #d64545;
+
+  --sidebar-width: 260px;
+  --ai-panel-width: 340px;
+  --radius: 6px;
+
+  --scrollbar-thumb: rgb(107 114 128 / 42%);
+  --scrollbar-thumb-hover: rgb(75 85 99 / 62%);
+  --scrollbar-thumb-active: rgb(55 65 81 / 78%);
+}
+
+/* 深色模式预留：后续由设置项切换 data-theme="dark" */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-app: #16181c;
+  --bg-panel: #1d2025;
+  --bg-hover: #262a31;
+  --bg-selected: #2a3550;
+  --border: #32363d;
+  --text-primary: #e6e8eb;
+  --text-muted: #9aa1ac;
+  --accent: #4d8bf5;
+
+  --scrollbar-thumb: rgb(154 161 172 / 38%);
+  --scrollbar-thumb-hover: rgb(178 185 195 / 58%);
+  --scrollbar-thumb-active: rgb(198 204 213 / 74%);
+}

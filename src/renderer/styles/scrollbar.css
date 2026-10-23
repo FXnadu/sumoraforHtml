@@ -1,0 +1,39 @@
+/*
+ * 统一滚动条外观：细圆角滑块 + 透明轨道 + 悬停加深。
+ * 同时用于宿主界面与笔记 webview（通过 insertCSS 注入），
+ * 因此所有颜色都给出不依赖宿主变量的兜底值。
+ * 注意：不要设置 scrollbar-width / scrollbar-color，
+ * 一旦设置 Chromium 会忽略下面的 ::-webkit-scrollbar 规则。
+ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: var(--scrollbar-thumb, rgb(128 138 152 / 45%));
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover, rgb(96 106 122 / 68%));
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active, rgb(72 82 96 / 82%));
+}
+
+/* 隐藏两端箭头按钮，避免老式外观 */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
