@@ -134,7 +134,7 @@ const aiPlugin: NoteDeskPlugin = {
     id: 'core.ai',
     name: 'AI 助手',
     version: '0.1.0',
-    description: '右侧 AI 对话面板：复用本机安装的 CLI Agent（如 Claude Code），附上当前笔记与选中元素作为上下文',
+    description: '右侧 AI 对话面板：复用本机安装的 CLI Agent（如 pi、Claude Code），附上当前笔记与选中元素作为上下文',
     apiVersion: 1,
     activation: 'onStart',
   },
@@ -494,11 +494,14 @@ function EmptyState({ kind, ctx }: { kind: 'no-note' | 'no-agent'; ctx: PluginCo
     <div className="ai-empty">
       <h3>未检测到可用的本地 Agent</h3>
       <p>
-        本应用的 AI 能力完全来自你本机安装的 CLI Agent（应用自身不提供 AI 服务）。例如安装 Claude Code：
+        本应用的 AI 能力完全来自你本机安装的 CLI Agent（应用自身不提供 AI 服务）。已支持：
         <br />
-        <code>npm install -g @anthropic-ai/claude-code</code>
+        pi coding agent：<code>npm install -g @earendil-works/pi-coding-agent</code>（装好后运行一次
+        <code>pi</code> 并 <code>/login</code> 登录模型服务）
         <br />
-        或使用官方安装器。Windows 下若已安装仍检测不到，请确认其目录（如 <code>%APPDATA%\npm</code>、
+        Claude Code：<code>npm install -g @anthropic-ai/claude-code</code>
+        <br />
+        Windows 下若已安装仍检测不到，请确认其目录（如 <code>%APPDATA%\npm</code>、
         <code>%USERPROFILE%\.local\bin</code>）在 PATH 中后重试。
       </p>
       <div className="ai-empty-actions">

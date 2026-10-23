@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentParsedEvent } from './agentAdapters';
-import { claudeCodeAdapter, detectableAdapters, genericJsonlAdapter } from './agentAdapters';
+import {
+  claudeCodeAdapter,
+  detectableAdapters,
+  genericJsonlAdapter,
+  piAdapter,
+} from './agentAdapters';
 
 /**
  * claude-code fixture 依据 stream-json 模式的公开事件形态编写；
+ * pi fixture 依据其官方 docs/json.md / docs/rpc.md 与本机 1.4.0 实测记录编写。
  * 接入真实 CLI 后如格式有出入，先改这里的 fixture 再改解析器（docs/06 §8）。
- *
- * 【恢复副本】原位于 src/main/services/agentAdapters.spec.ts，2026-10-24 误删后逐字恢复。
  */
 
 function feedAll(lines: string[]): AgentParsedEvent[][] {
@@ -130,6 +134,127 @@ describe('generic-jsonl 适配器', () => {
 
   it('占位适配器不参与探测', () => {
     expect(genericJsonlAdapter.command).toBeNull();
-    expect(detectableAdapters().map((a) => a.id)).toEqual(['claude-code']);
+    expect(detectableAdapters().map((a) => a.id)).toEqual(['claude-code', 'pi']);
+  });
+});
+
+describe('pi 适配器（RPC 模式）', () => {
+  function feedPi(lines: string[]): AgentParsedEvent[][] {
+    const parser = piAdapter.createParser();
+    return lines.map((line) => parser.feed(line));
+  }
+
+  it('命令失败响应映射为 error（本机实测的错误形状）', () => {
+    const events = feedPi([
+      JSON.stringify({
+        id: 'p1',
+        type: 'response',
+        command: 'prompt',
+        success: false,
+        error: 'No API key found for the selected model.\n\nUse /login to log into a provider via OAuth or API key.',
+      }),
+    ]);
+    expect(events[0]).toEqual([
+      { type: 'error', message: 'No API key found for the selected model.\n\nUse /login to log into a provider via OAuth or API key.' },
+    ]);
+  });
+
+  it('prompt 成功响应与其他命令响应映射为 status / 忽略', () => {
+    const events = feedPi([
+      JSON.stringify({ id: 'p1', type: 'response', command: 'prompt', success: true, data: { disposition: 'started' } }),
+      JSON.stringify({ id: 's1', type: 'response', command: 'get_state', success: true, data: { model: {} } }),
+    ]);
+    expect(events[0]).toEqual([{ type: 'status', text: '已接收提问' }]);
+    expect(events[1]).toEqual([]);
+  });
+
+  it('text_delta 流式增量与思考状态', () => {
+    const events = feedPi([
+      JSON.stringify({
+        type: 'message_update',
+        usage: {},
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: '你好' },
+      }),
+      JSON.stringify({
+        type: 'message_update',
+        usage: {},
+        assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: '想想' },
+      }),
+    ]);
+    expect(events[0]).toEqual([{ type: 'delta', text: '你好' }]);
+    expect(events[1]).toEqual([{ type: 'status', text: '思考中…' }]);
+  });
+
+  it('工具调用映射为 status', () => {
+    const events = feedPi([
+      JSON.stringify({ type: 'tool_execution_start', toolCallId: 'c1', toolName: 'read', args: {} }),
+    ]);
+    expect(events[0]).toEqual([{ type: 'status', text: '工具调用：read' }]);
+  });
+
+  it('message_end 权威全文 + agent_settled 触发 complete（字符串 content）', () => {
+    const events = feedPi([
+      JSON.stringify({ type: 'message_update', usage: {}, assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: '流式' } }),
+      JSON.stringify({ type: 'message_end', message: { role: 'assistant', content: '完整回答' } }),
+      JSON.stringify({ type: 'agent_settled', aborted: false }),
+    ]);
+    expect(events[1]).toEqual([]);
+    // complete 取 message_end 的权威全文，而非流式拼接
+    expect(events[2]).toEqual([{ type: 'complete', text: '完整回答' }]);
+  });
+
+  it('content 为内容块数组时拼接全部 text 块', () => {
+    const events = feedPi([
+      JSON.stringify({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: '第一段' },
+            { type: 'tool_use', id: 't', name: 'read' },
+            { type: 'text', text: '第二段' },
+          ],
+        },
+      }),
+      JSON.stringify({ type: 'agent_settled', aborted: false }),
+    ]);
+    expect(events[1]).toEqual([{ type: 'complete', text: '第一段第二段' }]);
+  });
+
+  it('settled 后 lastText 清空：下一段运行不残留旧答案', () => {
+    const events = feedPi([
+      JSON.stringify({ type: 'message_end', message: { role: 'assistant', content: '第一次' } }),
+      JSON.stringify({ type: 'agent_settled', aborted: false }),
+      JSON.stringify({ type: 'agent_settled', aborted: false }),
+    ]);
+    expect(events[1]).toEqual([{ type: 'complete', text: '第一次' }]);
+    expect(events[2]).toEqual([{ type: 'complete', text: '' }]);
+  });
+
+  it('user 消息的 message_end 与未知记录一律忽略；auto_retry 映射 status', () => {
+    const events = feedPi([
+      JSON.stringify({ type: 'message_end', message: { role: 'user', content: '提问' } }),
+      JSON.stringify({ type: 'queue_update', steering: [], followUp: [] }),
+      '不是 JSON',
+      JSON.stringify({ type: 'auto_retry_start', attempt: 1, maxAttempts: 3, delayMs: 2000, errorMessage: '529' }),
+    ]);
+    expect(events[0]).toEqual([]);
+    expect(events[1]).toEqual([]);
+    expect(events[2]).toEqual([]);
+    expect(events[3]).toEqual([{ type: 'status', text: '模型繁忙，自动重试…' }]);
+  });
+
+  it('encodeMessage 生成 prompt 命令行且带自增 id', () => {
+    const a = JSON.parse(piAdapter.encodeMessage('你好'));
+    const b = JSON.parse(piAdapter.encodeMessage('第二条'));
+    expect(a).toEqual({ id: 'm1', type: 'prompt', message: '你好' });
+    expect(b.id).toBe('m2');
+    expect(b.message).toBe('第二条');
+  });
+
+  it('启动参数全部通过安全校验（spawn 白名单前提）', () => {
+    for (const arg of piAdapter.buildArgs()) {
+      expect(arg).toMatch(/^[A-Za-z0-9_./:-]+$/);
+    }
   });
 });

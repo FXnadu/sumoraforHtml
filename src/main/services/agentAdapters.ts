@@ -184,7 +184,106 @@ export const genericJsonlAdapter: AgentAdapter = {
   createParser: createGenericParser,
 };
 
-const adapters: AgentAdapter[] = [claudeCodeAdapter, genericJsonlAdapter];
+// ── pi：pi coding agent 的官方 RPC 模式（长驻 JSONL 协议，见其 docs/rpc.md + json.md）──
+// stdin 每行一个命令（{"id","type":"prompt","message"}）；
+// stdout 三类记录：response（命令结果）、会话事件（message_update 流式增量 /
+// tool_execution_* / message_end 权威全文 / agent_settled 一次运行结束）。
+
+let piSeq = 0;
+
+/** message_end.message.content 兼容字符串与内容块数组两种形态，取全部 text 块 */
+function extractPiText(message: unknown): string {
+  if (typeof message !== 'object' || message === null) return '';
+  const content = (message as Record<string, unknown>)['content'];
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter(
+      (block): block is Record<string, unknown> =>
+        typeof block === 'object' &&
+        block !== null &&
+        (block as Record<string, unknown>)['type'] === 'text',
+    )
+    .map((block) => (typeof block['text'] === 'string' ? block['text'] : ''))
+    .join('');
+}
+
+function createPiParser(): AgentSessionParser {
+  const state = { lastText: '' };
+  return {
+    feed(line: string): AgentParsedEvent[] {
+      const obj = safeJsonParse(line);
+      if (!obj) return [];
+      const type = asString(obj['type']);
+
+      if (type === 'response') {
+        if (obj['success'] === false) {
+          return [{ type: 'error', message: asString(obj['error']) ?? '未知错误' }];
+        }
+        if (asString(obj['command']) === 'prompt') {
+          return [{ type: 'status', text: '已接收提问' }];
+        }
+        return [];
+      }
+
+      if (type === 'message_update') {
+        const event = obj['assistantMessageEvent'];
+        if (typeof event !== 'object' || event === null) return [];
+        const evt = event as Record<string, unknown>;
+        const kind = asString(evt['type']);
+        if (kind === 'text_delta') {
+          const delta = asString(evt['delta']);
+          return delta == null ? [] : [{ type: 'delta', text: delta }];
+        }
+        if (kind === 'thinking_delta') {
+          return [{ type: 'status', text: '思考中…' }];
+        }
+        return [];
+      }
+
+      if (type === 'tool_execution_start') {
+        return [{ type: 'status', text: `工具调用：${asString(obj['toolName']) ?? '未知工具'}` }];
+      }
+
+      if (type === 'message_end') {
+        const message = obj['message'];
+        if (
+          typeof message === 'object' &&
+          message !== null &&
+          (message as Record<string, unknown>)['role'] === 'assistant'
+        ) {
+          state.lastText = extractPiText(message);
+        }
+        return [];
+      }
+
+      // agent_settled：本次 prompt 的全部自动工作（含重试/压缩）结束，是天然的 complete 边界
+      if (type === 'agent_settled') {
+        const text = state.lastText;
+        state.lastText = '';
+        return [{ type: 'complete', text }];
+      }
+
+      if (type === 'auto_retry_start') {
+        return [{ type: 'status', text: '模型繁忙，自动重试…' }];
+      }
+
+      return [];
+    },
+  };
+}
+
+export const piAdapter: AgentAdapter = {
+  id: 'pi',
+  name: 'pi coding agent',
+  command: 'pi',
+  buildArgs: () => ['--mode', 'rpc', '--no-session'],
+  encodeMessage: (text: string): string =>
+    `${JSON.stringify({ id: `m${(piSeq += 1)}`, type: 'prompt', message: text })}\n`,
+  createParser: createPiParser,
+};
+
+const adapters: AgentAdapter[] = [claudeCodeAdapter, piAdapter, genericJsonlAdapter];
 
 export function getAdapter(id: string): AgentAdapter | null {
   return adapters.find((adapter) => adapter.id === id) ?? null;
