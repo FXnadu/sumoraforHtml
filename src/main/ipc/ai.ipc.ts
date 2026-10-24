@@ -1,14 +1,35 @@
-import { ipcMain } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app, ipcMain } from 'electron';
 import { CH } from '../../shared/ipc-channels';
-import type { AiSessionStartOptions } from '../../shared/types';
+import type { AgentInfo, AiSessionStartOptions } from '../../shared/types';
 import { AgentSessionError, detectAgents, sendMessage, startSession, stopSession } from '../services/agentRunner';
 
 /**
  * AI 域 IPC（docs/06 §3.1）。所有参数按不可信输入校验；
  * AgentSessionError 保留 code 透传给渲染层，便于给出针对性提示。
- *
- * 【恢复副本】原位于 src/main/ipc/ai.ipc.ts，2026-10-24 误删后逐字恢复。
  */
+
+/** 排障日志（userData/ai-detect.log）：GUI 进程 console 不可见，落文件取证 */
+function appendAiLog(message: string): void {
+  try {
+    fs.appendFileSync(
+      path.join(app.getPath('userData'), 'ai-detect.log'),
+      `${new Date().toISOString()} ${message}\n`,
+      'utf8',
+    );
+  } catch {
+    // 日志失败不影响功能
+  }
+}
+
+function describeAgents(agents: AgentInfo[]): string {
+  return (
+    agents
+      .map((a) => `${a.adapterId}:${a.available ? `ok(${a.version ?? '无版本'})` : '不可用'}`)
+      .join(', ') || '(空)'
+  );
+}
 
 function isStartOptions(value: unknown): value is AiSessionStartOptions {
   if (typeof value !== 'object' || value === null) return false;
@@ -25,7 +46,16 @@ function isStartOptions(value: unknown): value is AiSessionStartOptions {
 }
 
 export function registerAiIpc(): void {
-  ipcMain.handle(CH.AI_DETECT, () => detectAgents());
+  // 启动自检：不依赖 UI 触发，直接探测一次落日志，排障有据
+  void detectAgents()
+    .then((agents) => appendAiLog(`startup detect => ${describeAgents(agents)}`))
+    .catch((err) => appendAiLog(`startup detect 失败 => ${String(err)}`));
+
+  ipcMain.handle(CH.AI_DETECT, async () => {
+    const agents = await detectAgents();
+    appendAiLog(`detect => ${describeAgents(agents)}`);
+    return agents;
+  });
 
   ipcMain.handle(CH.AI_SESSION_START, async (_evt, options: unknown) => {
     if (!isStartOptions(options)) throw new Error('参数不完整');

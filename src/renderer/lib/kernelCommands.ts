@@ -36,6 +36,17 @@ export function registerKernelCommands(options: {
     useLibraryStore.getState().select(path);
     void useEditorStore.getState().open(path, root);
   });
+
+  // 插件可调用的内核能力：查询当前笔记状态。
+  // 插件激活晚于 note:opened 时（激活竞态），core.ai 等插件用它做初始同步。
+  registerCommand(
+    'kernel.get-note-state',
+    'kernel',
+    (): { path: string | null; dirty: boolean } => {
+      const state = useEditorStore.getState();
+      return { path: state.currentPath, dirty: state.dirty };
+    },
+  );
 }
 
 async function pickAndOpenNote(): Promise<void> {

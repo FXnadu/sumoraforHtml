@@ -160,6 +160,18 @@ const aiPlugin: NoteDeskPlugin = {
     ctx.events.on('note:closed', () => useAiState.getState().setNote(null));
     ctx.events.on('note:dirty-changed', ({ dirty }) => useAiState.getState().setNoteDirty(dirty));
 
+    // 激活竞态兜底：插件激活可能晚于 note:opened，主动同步一次当前笔记状态，
+    // 否则 notePath 为空导致检测与开会话永远不触发
+    void ctx.commands
+      .execute<{ path: string | null; dirty: boolean }>('kernel.get-note-state')
+      .then((state) => {
+        const s = useAiState.getState();
+        s.setNote(state.path);
+        s.setNoteDirty(state.dirty);
+        if (s.panelOpen) void ensureSession(ctx);
+      })
+      .catch(() => undefined);
+
     // Agent 会话事件流
     ctx.ai.onEvent(handleSessionEvent);
 
