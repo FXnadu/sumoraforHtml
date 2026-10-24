@@ -6,6 +6,7 @@ release2/
 release3/
 release4/
 release5/
+release6/
 coverage/
 *.local
 .DS_Store

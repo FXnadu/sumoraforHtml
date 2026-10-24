@@ -122,6 +122,14 @@ function friendlyError(err: unknown): string {
   return raw;
 }
 
+/** 会话内 pi 报错原文 → 行动建议（追加在原文后） */
+function withHint(message: string): string {
+  if (/No API key found/i.test(message)) {
+    return `${message}\n（若刚完成登录：会话进程是在登录前启动的，点「结束」再「开始」重建会话即可；若尚未登录：点「终端」运行 pi 后输入 /login）`;
+  }
+  return message;
+}
+
 /** 可用 Agent 里按偏好挑一个；没有偏好取第一个可用项 */
 function pickAgent(state: AiState): AgentInfo | null {
   const available = state.agents.filter((a) => a.available);
@@ -271,7 +279,7 @@ function handleSessionEvent(event: AiSessionEvent): void {
       break;
     }
     case 'error':
-      useAiState.getState().pushMessage('error', event.message);
+      useAiState.getState().pushMessage('error', withHint(event.message));
       break;
     case 'exit':
       cancelStreamFlush();
