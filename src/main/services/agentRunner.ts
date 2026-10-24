@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { app } from 'electron';
 import type { AgentInfo, AiSessionEvent, AiSessionStartOptions } from '../../shared/types';
 import { guardPath } from '../security/pathGuard';
 import { isWindowDirty } from '../window-state';
@@ -232,8 +233,14 @@ export async function startSession(options: AiSessionStartOptions): Promise<{ se
   // 约束 10：dirty 笔记不得开会话（Agent 以磁盘状态为准）
   if (isWindowDirty()) throw new AgentSessionError('NOTE_DIRTY', '当前笔记有未保存修改，请先保存');
 
-  const cwd =
+  // cwd 一律用 ASCII 安全目录（userData）：实测 Windows 下以非 ASCII 路径作为
+  // 子进程 cwd 会 spawn ENOENT / 进程内部路径错乱（docs/06 §10 偏差 6）。
+  // pi 读取笔记用的是上下文消息里的绝对路径，不依赖 cwd。
+  const preferredCwd =
     options.cwdScope === 'library-root' ? path.resolve(root) : path.dirname(path.resolve(options.notePath));
+  const cwd = /^[\x20-\x7E]*$/.test(preferredCwd)
+    ? preferredCwd
+    : app.getPath('userData');
 
   const located = await locateAgent(adapter.command, adapter.env);
   if (!located) {
