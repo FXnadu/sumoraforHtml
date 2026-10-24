@@ -32,6 +32,8 @@ export interface AgentAdapter {
   encodeMessage(text: string): string;
   /** 每个会话独立的解析器实例（有轮内状态） */
   createParser(): AgentSessionParser;
+  /** 附加到子进程的环境变量（如 PI_OFFLINE，绕开慢网络下的锁占用） */
+  env?: Record<string, string>;
 }
 
 function safeJsonParse(line: string): Record<string, unknown> | null {
@@ -278,6 +280,9 @@ export const piAdapter: AgentAdapter = {
   name: 'pi coding agent',
   command: 'pi',
   buildArgs: () => ['--mode', 'rpc', '--no-session'],
+  // 离线启动：跳过模型目录联网刷新与 fd/ripgrep 下载（慢网络下会长时间持有
+  // auth.json.lock，与其他 pi 进程撞锁 EPERM）；模型调用不受影响
+  env: { PI_OFFLINE: '1', PI_SKIP_VERSION_CHECK: '1' },
   encodeMessage: (text: string): string =>
     `${JSON.stringify({ id: `m${(piSeq += 1)}`, type: 'prompt', message: text })}\n`,
   createParser: createPiParser,

@@ -90,6 +90,7 @@ function spawnResolved(
   resolved: ResolvedCommand,
   args: string[],
   cwd: string,
+  env?: Record<string, string>,
 ): ChildProcess {
   for (const arg of args) {
     if (!SAFE_ARG.test(arg)) throw new AgentSessionError('SPAWN_FAILED', `适配器参数含非法字符：${arg}`);
@@ -99,6 +100,7 @@ function spawnResolved(
     const line = `"${resolved.exe}" ${args.join(' ')}`;
     return spawn(comspec, ['/d', '/s', '/c', line], {
       cwd,
+      env: env ? { ...process.env, ...env } : undefined,
       shell: false,
       windowsHide: true,
       windowsVerbatimArguments: true,
@@ -107,6 +109,7 @@ function spawnResolved(
   }
   return spawn(resolved.exe, args, {
     cwd,
+    env: env ? { ...process.env, ...env } : undefined,
     shell: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -118,11 +121,11 @@ function spawnResolved(
  * 同步 try/catch 判断不了「命令是否存在」，必须等事件。
  * 返回 null 表示该候选不可用（不存在或 5 秒无响应）。
  */
-function tryRunVersion(resolved: ResolvedCommand): Promise<string | null> {
+function tryRunVersion(resolved: ResolvedCommand, piEnv?: Record<string, string>): Promise<string | null> {
   return new Promise((resolve) => {
     let child: ChildProcess;
     try {
-      child = spawnResolved(resolved, ['--version'], process.cwd());
+      child = spawnResolved(resolved, ['--version'], process.cwd(), piEnv);
     } catch {
       resolve(null);
       return;
@@ -152,8 +155,11 @@ function tryRunVersion(resolved: ResolvedCommand): Promise<string | null> {
 }
 
 /** 定位命令：直接 spawn 得到确认（Windows 下再探测常见安装目录的 .cmd/.bat 垫片） */
-async function locateAgent(command: string): Promise<{ resolved: ResolvedCommand; version: string | null } | null> {
-  const version = await tryRunVersion({ exe: command, kind: 'direct' });
+async function locateAgent(
+  command: string,
+  env?: Record<string, string>,
+): Promise<{ resolved: ResolvedCommand; version: string | null } | null> {
+  const version = await tryRunVersion({ exe: command, kind: 'direct' }, env);
   if (version !== null) return { resolved: { exe: command, kind: 'direct' }, version };
 
   if (process.platform === 'win32') {
@@ -161,7 +167,7 @@ async function locateAgent(command: string): Promise<{ resolved: ResolvedCommand
       for (const ext of ['.cmd', '.bat']) {
         const candidate = path.join(dir, `${command}${ext}`);
         if (!fs.existsSync(candidate)) continue;
-        const shimVersion = await tryRunVersion({ exe: candidate, kind: 'cmd-shim' });
+        const shimVersion = await tryRunVersion({ exe: candidate, kind: 'cmd-shim' }, env);
         if (shimVersion !== null) return { resolved: { exe: candidate, kind: 'cmd-shim' }, version: shimVersion };
       }
     }
@@ -175,7 +181,7 @@ async function locateAgent(command: string): Promise<{ resolved: ResolvedCommand
 export async function detectAgents(): Promise<AgentInfo[]> {
   const results: AgentInfo[] = [];
   for (const adapter of detectableAdapters()) {
-    const located = adapter.command ? await locateAgent(adapter.command) : null;
+    const located = adapter.command ? await locateAgent(adapter.command, adapter.env) : null;
     if (!located) {
       results.push({ adapterId: adapter.id, name: adapter.name, available: false });
       continue;
@@ -229,7 +235,7 @@ export async function startSession(options: AiSessionStartOptions): Promise<{ se
   const cwd =
     options.cwdScope === 'library-root' ? path.resolve(root) : path.dirname(path.resolve(options.notePath));
 
-  const located = await locateAgent(adapter.command);
+  const located = await locateAgent(adapter.command, adapter.env);
   if (!located) {
     throw new AgentSessionError('AGENT_NOT_FOUND', `本机未找到 ${adapter.name}，请先安装并确保其在 PATH 中`);
   }
@@ -238,7 +244,7 @@ export async function startSession(options: AiSessionStartOptions): Promise<{ se
   const sessionId = `ai-${nextSessionId++}`;
   let child: ChildProcess;
   try {
-    child = spawnResolved(resolved, adapter.buildArgs(), cwd);
+    child = spawnResolved(resolved, adapter.buildArgs(), cwd, adapter.env);
   } catch (err) {
     throw new AgentSessionError('SPAWN_FAILED', `启动 ${adapter.name} 失败：${String(err)}`);
   }

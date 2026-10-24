@@ -119,10 +119,29 @@ export function registerAiIpc(): void {
       // 建不出来也不阻塞：pi 侧自行兜底
     }
 
-    const agentLine =
-      command === 'pi' ? `pi --session-dir "${appSessions}"` : command;
+    // pi 用应用侧包装脚本启动：离线变量（跳过模型目录联网刷新/下载，
+    // 避免慢网络下长时间持有 auth.json.lock 撞锁 EPERM）+ 固定会话目录
+    let agentLine = command;
+    if (command === 'pi') {
+      const launcher = path.join(app.getPath('userData'), 'pi-sumora.cmd');
+      try {
+        fs.writeFileSync(
+          launcher,
+          [
+            '@echo off',
+            'set PI_OFFLINE=1',
+            'set PI_SKIP_VERSION_CHECK=1',
+            `pi --session-dir "${appSessions}" %*`,
+          ].join('\r\n'),
+          'utf8',
+        );
+        agentLine = `"${launcher}"`;
+      } catch {
+        agentLine = `pi --session-dir "${appSessions}"`;
+      }
+    }
 
-    appendAiLog(`open-terminal => command=${command} cwd=${cwd}`);
+    appendAiLog(`open-terminal => command=${command} cwd=${cwd} line=${agentLine}`);
 
     const cmdLine = `start "" /D "${cwd}" ${windowsTerminalPrefix(cwd)}cmd /k ${agentLine}`;
     const child = spawn(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', cmdLine], {
