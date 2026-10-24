@@ -366,6 +366,16 @@ function AiPanel({ ctx }: { ctx: PluginContext }): JSX.Element {
   };
 
   const onRestart = (): void => {
+    // 按钮永远可点，条件不满足时给出明确反馈（静默禁用曾让用户以为「没反应」）
+    const s = useAiState.getState();
+    if (!s.notePath) {
+      s.pushMessage('error', '请先在左侧打开一篇笔记，再开始 AI 会话（会话以笔记所在目录为工作区）');
+      return;
+    }
+    if (s.noteDirty) {
+      s.pushMessage('error', '当前笔记有未保存修改，请先保存（Ctrl+S）再开始会话');
+      return;
+    }
     useAiState.setState({ messages: [], chips: [] });
     useAiState.getState().setPhase('idle');
     void ensureSession(ctx);
@@ -400,13 +410,7 @@ function AiPanel({ ctx }: { ctx: PluginContext }): JSX.Element {
             结束
           </button>
         ) : (
-          <button
-            type="button"
-            className="ai-empty-btn"
-            title="开始会话"
-            disabled={!state.notePath || state.noteDirty}
-            onClick={onRestart}
-          >
+          <button type="button" className="ai-empty-btn" title="开始会话" onClick={onRestart}>
             开始
           </button>
         )}

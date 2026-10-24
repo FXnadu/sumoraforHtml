@@ -89,7 +89,9 @@ export function registerAiIpc(): void {
 
   /**
    * 兜底入口：在系统终端里以笔记目录为 cwd 启动本地 Agent。
-   * cwd 必须过 pathGuard（渲染层入参不可信）；Windows 用 cmd start 弹独立窗口。
+   * cwd 必须过 pathGuard（渲染层入参不可信）；优先 Windows Terminal，退回 cmd。
+   * pi 额外传 --session-dir（应用 userData 下，ASCII 路径），避开其默认会话目录
+   * 在父目录缺失时报 EPERM 的问题；并防御性预建两侧会话目录。
    */
   ipcMain.handle(CH.AI_OPEN_TERMINAL, (_evt, payload: unknown) => {
     const v = payload as { command?: unknown; notePath?: unknown } | null;
@@ -106,24 +108,46 @@ export function registerAiIpc(): void {
         cwd = null;
       }
     }
-    if (!cwd) cwd = root ?? path.join(app.getPath('home'));
+    if (!cwd) cwd = root ?? app.getPath('home');
+
+    // 预建 pi 的会话目录：应用侧（ASCII 路径）与默认侧（修复历史 EPERM）
+    const appSessions = path.join(app.getPath('userData'), 'pi-sessions');
+    try {
+      fs.mkdirSync(appSessions, { recursive: true });
+      fs.mkdirSync(path.join(app.getPath('home'), '.pi', 'agent', 'sessions'), { recursive: true });
+    } catch {
+      // 建不出来也不阻塞：pi 侧自行兜底
+    }
+
+    const agentLine =
+      command === 'pi' ? `pi --session-dir "${appSessions}"` : command;
 
     appendAiLog(`open-terminal => command=${command} cwd=${cwd}`);
-    if (process.platform === 'win32') {
-      const line = `start "" /D "${cwd}" cmd /k ${command}`;
-      const child = spawn(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', line], {
-        windowsVerbatimArguments: true,
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
-      return { ok: true };
-    }
-    const terminal = process.env['TERM_PROGRAM'] ?? 'x-terminal-emulator';
-    const child = spawn(terminal, ['-e', command], { cwd, detached: true, stdio: 'ignore' });
+
+    const cmdLine = `start "" /D "${cwd}" ${windowsTerminalPrefix(cwd)}cmd /k ${agentLine}`;
+    const child = spawn(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', cmdLine], {
+      windowsVerbatimArguments: true,
+      detached: true,
+      stdio: 'ignore',
+    });
     child.unref();
     return { ok: true };
   });
+}
+
+/** Windows Terminal 可用则前缀 `wt -d <cwd>`（标签页体验），否则空串退回 cmd 窗口 */
+let wtCache: boolean | null = null;
+function windowsTerminalPrefix(cwd: string): string {
+  if (process.platform !== 'win32') return '';
+  wtCache ??= (() => {
+    try {
+      require('node:child_process').execSync('where wt.exe', { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  return wtCache ? `wt -d "${cwd}" ` : '';
 }
 
 /** 把 AgentSessionError 转成渲染层可识别的错误标记 */
