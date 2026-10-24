@@ -36,4 +36,7 @@ export const aiApi: PluginAiApi = {
 
   pickElement: (): Promise<PickedElement | null> =>
     pickProvider ? pickProvider() : Promise.resolve(null),
+
+  openTerminal: (command: string, notePath: string): Promise<{ ok: boolean }> =>
+    bridge()?.openTerminal(command, notePath) ?? Promise.resolve({ ok: false }),
 };

@@ -99,6 +99,8 @@ export interface PluginAiApi {
   onEvent(cb: (event: AiSessionEvent) => void): () => void;
   /** 进入元素拾取：用户点击元素或放弃后 resolve（实现由内核注入，见 ai.ts） */
   pickElement(): Promise<PickedElement | null>;
+  /** 兜底：在系统终端里以笔记目录为 cwd 启动本地 Agent（cwd 由内核校验） */
+  openTerminal(command: string, notePath: string): Promise<{ ok: boolean }>;
 }
 
 /** 插件运行时上下文：宿主在 activate 时注入 */

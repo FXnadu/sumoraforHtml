@@ -32,6 +32,8 @@ export const CH = {
   AI_SESSION_SEND: 'ai:session-send',
   AI_SESSION_STOP: 'ai:session-stop',
   AI_EVENT: 'ai:event',
+  // 兜底入口：在系统终端中以笔记目录为 cwd 启动本地 Agent
+  AI_OPEN_TERMINAL: 'ai:open-terminal',
 } as const;
 
 export type ChannelName = (typeof CH)[keyof typeof CH];

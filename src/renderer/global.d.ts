@@ -20,6 +20,8 @@ export interface NoteDeskAiApi {
   send: (sessionId: string, text: string) => void;
   stop: (sessionId: string) => Promise<void>;
   onEvent: (cb: (event: AiSessionEvent) => void) => () => void;
+  /** 兜底：在系统终端里以笔记目录为 cwd 启动本地 Agent */
+  openTerminal: (command: string, notePath: string) => Promise<{ ok: boolean }>;
 }
 
 /** 宿主界面通过 contextBridge 暴露的 API

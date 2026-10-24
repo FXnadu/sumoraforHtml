@@ -81,6 +81,9 @@ contextBridge.exposeInMainWorld('noteDesk', {
       ipcRenderer.on(CH.AI_EVENT, handler);
       return () => ipcRenderer.removeListener(CH.AI_EVENT, handler);
     },
+    /** 兜底：在系统终端里以笔记目录为 cwd 启动本地 Agent */
+    openTerminal: (command: string, notePath: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke(CH.AI_OPEN_TERMINAL, { command, notePath }),
   },
 
   onMenuCommand: (cb: (command: MenuCommand) => void): (() => void) => {

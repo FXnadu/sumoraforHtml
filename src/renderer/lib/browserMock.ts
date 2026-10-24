@@ -93,6 +93,7 @@ export function installBrowserMock(): void {
       send: () => undefined,
       stop: async () => undefined,
       onEvent: () => () => undefined,
+      openTerminal: async () => ({ ok: false }),
     },
 
     getPluginState: async () => ({

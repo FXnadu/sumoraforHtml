@@ -175,6 +175,10 @@ const aiPlugin: NoteDeskPlugin = {
     // Agent 会话事件流
     ctx.ai.onEvent(handleSessionEvent);
 
+    // 激活即无条件探测一次：不依赖面板开合/笔记时机（历史 bug 的根因），
+    // 同时充当渲染层→主进程链路自检（主进程 ai-detect.log 会留痕）
+    void detect(ctx);
+
     // 偏好持久化加载
     void (async () => {
       const [preferredAdapter, cwdScope, attachMode, inlineKB, privacyDismissed] = await Promise.all([
@@ -406,6 +410,17 @@ function AiPanel({ ctx }: { ctx: PluginContext }): JSX.Element {
             开始
           </button>
         )}
+        <button
+          type="button"
+          className="ai-empty-btn"
+          title="在系统终端中启动 Agent（工作目录=当前笔记所在目录）"
+          onClick={() => {
+            const agent = pickAgent(state);
+            void ctx.ai.openTerminal(agent?.adapterId === 'claude-code' ? 'claude' : 'pi', state.notePath ?? '');
+          }}
+        >
+          终端
+        </button>
       </header>
 
       {!state.privacyDismissed && (
@@ -527,6 +542,14 @@ function EmptyState({ kind, ctx }: { kind: 'no-note' | 'no-agent'; ctx: PluginCo
           }}
         >
           {checking ? '检测中…' : '重新检测'}
+        </button>
+        <button
+          type="button"
+          className="ai-empty-btn"
+          title="跳过检测，直接在系统终端中启动 pi（工作目录=当前笔记所在目录）"
+          onClick={() => void ctx.ai.openTerminal('pi', useAiState.getState().notePath ?? '')}
+        >
+          在终端打开 pi
         </button>
       </div>
     </div>

@@ -1,9 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { app, ipcMain } from 'electron';
 import { CH } from '../../shared/ipc-channels';
 import type { AgentInfo, AiSessionStartOptions } from '../../shared/types';
-import { AgentSessionError, detectAgents, sendMessage, startSession, stopSession } from '../services/agentRunner';
+import {
+  AgentSessionError,
+  detectAgents,
+  sendMessage,
+  startSession,
+  stopSession,
+} from '../services/agentRunner';
+import { guardPath } from '../security/pathGuard';
+import { getLibraryRoot } from '../services/settings';
 
 /**
  * AI 域 IPC（docs/06 §3.1）。所有参数按不可信输入校验；
@@ -76,6 +85,44 @@ export function registerAiIpc(): void {
   ipcMain.handle(CH.AI_SESSION_STOP, (_evt, sessionId: unknown) => {
     if (typeof sessionId !== 'string') throw new Error('参数不完整');
     stopSession(sessionId);
+  });
+
+  /**
+   * 兜底入口：在系统终端里以笔记目录为 cwd 启动本地 Agent。
+   * cwd 必须过 pathGuard（渲染层入参不可信）；Windows 用 cmd start 弹独立窗口。
+   */
+  ipcMain.handle(CH.AI_OPEN_TERMINAL, (_evt, payload: unknown) => {
+    const v = payload as { command?: unknown; notePath?: unknown } | null;
+    const command = v && typeof v['command'] === 'string' ? v['command'] : 'pi';
+    const notePath = v && typeof v['notePath'] === 'string' ? v['notePath'] : '';
+    if (!/^[A-Za-z0-9_./:-]{1,64}$/.test(command)) throw new Error('非法命令名');
+
+    let cwd: string | null = null;
+    const root = getLibraryRoot();
+    if (root && notePath) {
+      try {
+        cwd = path.dirname(guardPath(root, notePath));
+      } catch {
+        cwd = null;
+      }
+    }
+    if (!cwd) cwd = root ?? path.join(app.getPath('home'));
+
+    appendAiLog(`open-terminal => command=${command} cwd=${cwd}`);
+    if (process.platform === 'win32') {
+      const line = `start "" /D "${cwd}" cmd /k ${command}`;
+      const child = spawn(process.env['ComSpec'] ?? 'cmd.exe', ['/d', '/s', '/c', line], {
+        windowsVerbatimArguments: true,
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      return { ok: true };
+    }
+    const terminal = process.env['TERM_PROGRAM'] ?? 'x-terminal-emulator';
+    const child = spawn(terminal, ['-e', command], { cwd, detached: true, stdio: 'ignore' });
+    child.unref();
+    return { ok: true };
   });
 }
 
