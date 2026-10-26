@@ -1,13 +1,7 @@
 node_modules/
 out/
 dist/
-release/
-release2/
-release3/
-release4/
-release5/
-release6/
-release7/
+release*/
 coverage/
 *.local
 .DS_Store

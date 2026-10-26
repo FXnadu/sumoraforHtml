@@ -1,7 +1,4 @@
-/** IPC channel 常量。新增 channel 必须同步更新架构文档中的契约表。
- *
- * 【恢复副本】原位于 src/shared/ipc-channels.ts，2026-10-24 误删后逐字恢复。
- * 此版本 = 误删前最终状态（含 AI 侧边栏通道）。 */
+/** IPC channel 常量。新增 channel 必须同步更新架构文档中的契约表。 */
 
 export const CH = {
   PICK_LIBRARY: 'dialog:pickLibrary',
@@ -26,14 +23,13 @@ export const CH = {
   PLUGIN_STORAGE_SET: 'plugin:storage-set',
   MENU_COMMAND: 'menu:command',
   APP_SET_DIRTY: 'app:set-dirty',
-  // AI 侧边栏（本地 CLI Agent 壳，docs/06）：进程能力属内核，界面属 core.ai 插件
-  AI_DETECT: 'ai:detect',
-  AI_SESSION_START: 'ai:session-start',
-  AI_SESSION_SEND: 'ai:session-send',
-  AI_SESSION_STOP: 'ai:session-stop',
-  AI_EVENT: 'ai:event',
-  // 兜底入口：在系统终端中以笔记目录为 cwd 启动本地 Agent
-  AI_OPEN_TERMINAL: 'ai:open-terminal',
+  // 内嵌终端（PTY）：进程属内核，渲染层只收发数据，命令来自用户设置
+  TERM_CREATE: 'term:create',
+  TERM_INPUT: 'term:input',
+  TERM_RESIZE: 'term:resize',
+  TERM_KILL: 'term:kill',
+  TERM_OUTPUT: 'term:output',
+  TERM_EXIT: 'term:exit',
 } as const;
 
 export type ChannelName = (typeof CH)[keyof typeof CH];
@@ -46,7 +42,7 @@ export const WV = {
   MARK_CLEAN: 'note:mark-clean',
   DIRTY: 'note:dirty',
   SAVE_REQUEST: 'note:save-request',
-  // 元素拾取（docs/06 §5）：picked 回传元素，cancelled 表示用户按 Esc 放弃
+  // 元素拾取：picked 回传元素，cancelled 表示用户按 Esc 放弃
   AI_PICK_START: 'ai:pick-start',
   AI_PICK_STOP: 'ai:pick-stop',
   AI_PICKED: 'ai:picked',

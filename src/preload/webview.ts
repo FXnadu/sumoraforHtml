@@ -10,16 +10,11 @@ import type { SerializeResponse } from '../shared/types';
  *
  * 约束（详见 docs/03-实现方案.md 第 5 节）：
  * - composition 期间不得做任何拦截，否则中文输入会被破坏
- * - 只把文本叶子标记为可编辑，不增删标签
+ * - 只把可编辑块标记为可编辑，不增删标签
  * - 序列化前必须摘掉注入属性，保存的内容不能带上 contenteditable 等标记
  *
  * 消息名与 shared/ipc-channels.ts 的 WV 保持一致；这里单独定义是为了让
  * 沙箱 preload 只依赖 electron 一个模块，不产生需要额外 require 的分包。
- *
- * 【恢复副本】原位于 src/preload/webview.ts，2026-10-24 误删后逐字恢复。
- * 相对旧基线的差异：① import 增加 element-pick；② WV 本地副本增加 4 个 ai:* 消息名；
- * ③ 删除本地 EDITABLE_FLAG 常量（改用 element-pick 导出）；④ serializeClean 开头
- * 增加拾取前置退出；⑤ 文件尾新增「元素拾取模式」整段。
  */
 
 const WV = {
@@ -267,7 +262,7 @@ document.addEventListener(
   true,
 );
 
-// ── 元素拾取模式（docs/06 §5）─────────────────────────────
+// ── 元素拾取模式 ─────────────────────────────────────────
 // 高亮只改内联样式并逐元素快照还原；悬浮标签是唯一注入节点，退出时必删。
 // 两者都不允许进入序列化输出（serializeClean 前强制退出拾取）。
 

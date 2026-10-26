@@ -1,22 +1,10 @@
 import type { ReactNode } from 'react';
-import type {
-  AgentInfo,
-  AiSessionEvent,
-  AiSessionStartOptions,
-  FileNode,
-  PickedElement,
-  Settings,
-} from '../../shared/types';
+import type { FileNode, Settings } from '../../shared/types';
 
 /**
  * 插件 API 契约（apiVersion 1）。
  * 插件与宿主之间的唯一通道是 PluginContext；内置插件被 ESLint 约束只能
  * 依赖本目录与 shared/，不得 import 内核 store / main / preload / core。
- *
- * 【恢复副本】原位于 src/plugins/host/types.ts，2026-10-24 误删后逐字恢复。
- * 相对旧基线：① import 增加 AI 类型；② UiSlotId 增加 'right-panel'；
- * ③ KernelEventMap 增加 'ai-panel:changed'；④ 新增 PluginAiApi 接口，
- * PluginContext 增加 ai 字段。
  */
 
 /** 插件可声明的权限（P4 运行时插件才生效；v1 内置插件恒为空） */
@@ -44,8 +32,7 @@ export type UiSlotId =
   | 'sidebar-panel'
   | 'status-bar'
   | 'note-toolbar'
-  | 'settings-section'
-  | 'right-panel';
+  | 'settings-section';
 
 /** 右键菜单贡献项 */
 export interface MenuItemContribution {
@@ -73,8 +60,6 @@ export interface KernelEventMap {
   'note:saved': { path: string; backupPath?: string };
   'note:save-failed': { path: string | null; message: string };
   'settings:changed': Partial<Settings>;
-  /** 右侧 AI 面板开合（内核 App 状态变化时发出，插件据此懒启动会话） */
-  'ai-panel:changed': { open: boolean };
 }
 
 export type KernelEventName = keyof KernelEventMap;
@@ -83,24 +68,6 @@ export type KernelEventName = keyof KernelEventMap;
 export interface PluginFileApi {
   listFiles(): Promise<FileNode[]>;
   readNote(absPath: string): Promise<{ path: string; html: string; encoding: string }>;
-}
-
-/** 本地 CLI Agent 能力（docs/06）：进程在主进程，插件只经此受控 API 触达 */
-export interface PluginAiApi {
-  /** 探测本机可用 Agent（含版本与安装位置） */
-  detect(): Promise<AgentInfo[]>;
-  /** 开启会话；cwd 与上下文由内核解析校验，dirty 笔记会被拒绝 */
-  startSession(options: AiSessionStartOptions): Promise<{ sessionId: string }>;
-  /** 追加一条用户消息（写入 Agent stdin） */
-  send(sessionId: string, text: string): void;
-  /** 结束会话并杀进程树 */
-  stop(sessionId: string): Promise<void>;
-  /** 订阅会话事件流；返回取消函数 */
-  onEvent(cb: (event: AiSessionEvent) => void): () => void;
-  /** 进入元素拾取：用户点击元素或放弃后 resolve（实现由内核注入，见 ai.ts） */
-  pickElement(): Promise<PickedElement | null>;
-  /** 兜底：在系统终端里以笔记目录为 cwd 启动本地 Agent（cwd 由内核校验） */
-  openTerminal(command: string, notePath: string): Promise<{ ok: boolean }>;
 }
 
 /** 插件运行时上下文：宿主在 activate 时注入 */
@@ -121,7 +88,6 @@ export interface PluginContext {
     registerSettingSection(render: () => ReactNode): void;
   };
   files: PluginFileApi;
-  ai: PluginAiApi;
   /** 插件私有持久化：主进程按 plugin:<id>:<key> 隔离在 plugins.json */
   storage: {
     get<T = unknown>(key: string): Promise<T | null>;

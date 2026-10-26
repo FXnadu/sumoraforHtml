@@ -1,13 +1,9 @@
 import type { NoteDeskPlugin } from '../host/types';
-import aiPlugin from './ai';
 
 /**
- * 内置插件清单。
- * core.ai：右侧 AI 助手面板（本地 CLI Agent 壳，docs/06）。
- *
- * 【恢复副本】原位于 src/plugins/builtins/index.ts，2026-10-24 误删后逐字恢复。
- * 注意：误删前此文件还登记了 search / recent / theme-dark 三个内置插件
- * （另一会话的工作），本副本只含 core.ai——恢复基线后请把其余插件的
- * 登记行补回来。
+ * 内置插件清单。core.ai（AI 对话面板）已按「与用户工具解耦」的定位移除：
+ * AI/CLI 入口改为状态栏「>_」按钮，直接在系统终端打开笔记目录，
+ * 命令由用户在设置里自行配置（见 main/ipc/terminal.ipc.ts）。
+ * 插件宿主本身保留，后续内置插件在此登记即可。
  */
-export const BUILTIN_PLUGINS: NoteDeskPlugin[] = [aiPlugin];
+export const BUILTIN_PLUGINS: NoteDeskPlugin[] = [];

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FileNode } from '../../shared/types';
 import { executeMenuItem, getContextMenuItems } from '../../plugins/host/registry';
-import SlotHost from '../../plugins/host/slots';
+import SlotHost, { useSlotEmpty } from '../../plugins/host/slots';
 import { useEditorStore } from '../store/editorStore';
 import { useLibraryStore } from '../store/libraryStore';
 import ContextMenu, { type ContextMenuItem } from './ContextMenu';
@@ -25,6 +25,7 @@ export default function Sidebar(): JSX.Element {
 
   const [menu, setMenu] = useState<MenuTarget | null>(null);
   const [dialog, setDialog] = useState<DialogTarget | null>(null);
+  const headerSlotEmpty = useSlotEmpty('sidebar-header');
 
   useEffect(() => {
     if (!opMessage) return;
@@ -118,12 +119,11 @@ export default function Sidebar(): JSX.Element {
 
   return (
     <>
-      <header className="sidebar-header">
-        <span className="sidebar-title" title={root ?? '笔记库'}>
-          {root ? fileNameOf(root) || root : '笔记库'}
-        </span>
-        <SlotHost slot="sidebar-header" />
-      </header>
+      {!headerSlotEmpty && (
+        <header className="sidebar-header">
+          <SlotHost slot="sidebar-header" />
+        </header>
+      )}
 
       <div
         className="explorer"
@@ -226,11 +226,6 @@ function parentPathOf(value: string): string {
   if (index === 0) return '/';
   const parent = posix.slice(0, index);
   return /^[a-zA-Z]:$/.test(parent) ? `${parent}/` : parent;
-}
-
-function fileNameOf(value: string): string {
-  const posix = value.replace(/\\/g, '/');
-  return posix.slice(posix.lastIndexOf('/') + 1);
 }
 
 function menuItemsFor(target: MenuTarget): ContextMenuItem[] {

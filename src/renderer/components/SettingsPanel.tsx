@@ -4,6 +4,7 @@ import { getPluginStates, setPluginEnabled, subscribeRegistry, getRegistryVersio
 import SlotHost from '../../plugins/host/slots';
 import type { PluginRuntimeState } from '../../plugins/host/types';
 import { useEditorStore } from '../store/editorStore';
+import { toMessage } from '../lib/ipcError';
 
 /**
  * 设置面板：内核通用设置 + 插件启停 + 插件贡献的设置区块（settings-section 插槽）。
@@ -12,11 +13,15 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }): JSX
   const editMode = useEditorStore((s) => s.editMode);
   const setEditMode = useEditorStore((s) => s.setEditMode);
   const [backupOnSave, setBackupOnSave] = useState(true);
+  const [cliCommand, setCliCommand] = useState('');
   useSyncExternalStore(subscribeRegistry, getRegistryVersion);
   const pluginStates = getPluginStates();
 
   useEffect(() => {
-    void window.noteDesk.getSettings().then((settings) => setBackupOnSave(settings.backupOnSave));
+    void window.noteDesk.getSettings().then((settings) => {
+      setBackupOnSave(settings.backupOnSave);
+      setCliCommand(settings.cliCommand);
+    });
   }, []);
 
   const toggleEditMode = (): void => {
@@ -33,6 +38,16 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }): JSX
     void window.noteDesk.setSettings({ backupOnSave: next }).then((settings) => {
       emitKernelEvent('settings:changed', { backupOnSave: settings.backupOnSave });
     });
+  };
+
+  const changeCliCommand = (value: string): void => {
+    setCliCommand(value);
+    void window.noteDesk
+      .setSettings({ cliCommand: value })
+      .then((settings) => {
+        emitKernelEvent('settings:changed', { cliCommand: settings.cliCommand });
+      })
+      .catch((err) => window.alert(toMessage(err)));
   };
 
   return (
@@ -60,6 +75,22 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }): JSX
               <span className="settings-row-desc">保存时在原目录生成 .bak 备份文件</span>
             </span>
             <input type="checkbox" checked={backupOnSave} onChange={toggleBackup} />
+          </label>
+          <label className="settings-row settings-row-column">
+            <span>
+              <span className="settings-row-label">终端 CLI 命令</span>
+              <span className="settings-row-desc">
+                终端面板（状态栏「&gt;_」）创建会话时运行此命令（须可在 PATH
+                中直接运行，如 pi、claude）；留空则打开普通命令行
+              </span>
+            </span>
+            <input
+              type="text"
+              value={cliCommand}
+              placeholder="例如：pi"
+              spellCheck={false}
+              onChange={(event) => changeCliCommand(event.target.value)}
+            />
           </label>
         </div>
         <div className="settings-section">

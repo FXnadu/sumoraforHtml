@@ -77,6 +77,16 @@ const INTERACTIVE_TAGS = new Set([
   'OBJECT',
 ]);
 
+/** 子树禁入标签的组合选择器（块级 + 排除 + 交互）：querySelector 首个命中即停，
+ * 替代逐元素 querySelectorAll('*') 全量展开，大文档从近似平方级降为近似线性 */
+const BLOCKED_DESCENDANT_SELECTOR = [
+  ...BLOCK_TAGS,
+  ...EXCLUDED,
+  ...INTERACTIVE_TAGS,
+]
+  .map((tag) => tag.toLowerCase())
+  .join(',');
+
 /** 是否为可编辑块：自身有直接文本、子树无块级/排除/交互标签 */
 export function isEditableBlock(el: HTMLElement): boolean {
   if (el.tagName === 'BODY' || el.tagName === 'HTML') return false;
@@ -89,15 +99,7 @@ export function isEditableBlock(el: HTMLElement): boolean {
   );
   if (!hasDirectText) return false;
 
-  for (const descendant of Array.from(el.querySelectorAll('*'))) {
-    if (
-      BLOCK_TAGS.has(descendant.tagName) ||
-      EXCLUDED.has(descendant.tagName) ||
-      INTERACTIVE_TAGS.has(descendant.tagName)
-    ) {
-      return false;
-    }
-  }
+  if (el.querySelector(BLOCKED_DESCENDANT_SELECTOR)) return false;
   return true;
 }
 

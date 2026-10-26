@@ -1,9 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { CH } from '../shared/ipc-channels';
 import type {
-  AgentInfo,
-  AiSessionEvent,
-  AiSessionStartOptions,
   FileChangeEvent,
   FileNode,
   FileOpResult,
@@ -13,15 +10,14 @@ import type {
   SaveRequest,
   SaveResult,
   Settings,
+  TermExitEvent,
+  TermOutputEvent,
+  TermSessionInfo,
 } from '../shared/types';
 
 /**
  * 宿主界面 API。最小暴露原则：只暴露具名函数，不暴露 ipcRenderer 本体。
  * 注意：watch:* 的主进程 handler 尚未注册（S6 接入），请勿提前调用。
- *
- * 【恢复副本】原位于 src/preload/index.ts，2026-10-24 误删后逐字恢复。
- * 相对旧基线的差异：import 增加 AgentInfo/AiSessionEvent/AiSessionStartOptions；
- * 新增「AI 侧边栏」ai 命名空间块（setDirty 之后）。
  */
 contextBridge.exposeInMainWorld('noteDesk', {
   pickLibrary: (): Promise<string | null> => ipcRenderer.invoke(CH.PICK_LIBRARY),
@@ -67,23 +63,27 @@ contextBridge.exposeInMainWorld('noteDesk', {
     ipcRenderer.send(CH.APP_SET_DIRTY, dirty);
   },
 
-  // ── AI 侧边栏（本地 CLI Agent 壳，docs/06）：只暴露具名操作，事件单向推送 ──
-  ai: {
-    detect: (): Promise<AgentInfo[]> => ipcRenderer.invoke(CH.AI_DETECT),
-    startSession: (options: AiSessionStartOptions): Promise<{ sessionId: string }> =>
-      ipcRenderer.invoke(CH.AI_SESSION_START, options),
-    send: (sessionId: string, text: string): void => {
-      ipcRenderer.send(CH.AI_SESSION_SEND, { sessionId, text });
+  // ── 内嵌终端（PTY）：进程属内核，命令来自用户设置，渲染层只收发数据 ──
+  terminal: {
+    create: (notePath: string, cols: number, rows: number): Promise<TermSessionInfo> =>
+      ipcRenderer.invoke(CH.TERM_CREATE, { notePath, cols, rows }),
+    input: (sessionId: string, data: string): void => {
+      ipcRenderer.send(CH.TERM_INPUT, { sessionId, data });
     },
-    stop: (sessionId: string): Promise<void> => ipcRenderer.invoke(CH.AI_SESSION_STOP, sessionId),
-    onEvent: (cb: (event: AiSessionEvent) => void): (() => void) => {
-      const handler = (_evt: unknown, event: AiSessionEvent): void => cb(event);
-      ipcRenderer.on(CH.AI_EVENT, handler);
-      return () => ipcRenderer.removeListener(CH.AI_EVENT, handler);
+    resize: (sessionId: string, cols: number, rows: number): void => {
+      ipcRenderer.send(CH.TERM_RESIZE, { sessionId, cols, rows });
     },
-    /** 兜底：在系统终端里以笔记目录为 cwd 启动本地 Agent */
-    openTerminal: (command: string, notePath: string): Promise<{ ok: boolean }> =>
-      ipcRenderer.invoke(CH.AI_OPEN_TERMINAL, { command, notePath }),
+    kill: (sessionId: string): Promise<void> => ipcRenderer.invoke(CH.TERM_KILL, sessionId),
+    onOutput: (cb: (event: TermOutputEvent) => void): (() => void) => {
+      const handler = (_evt: unknown, event: TermOutputEvent): void => cb(event);
+      ipcRenderer.on(CH.TERM_OUTPUT, handler);
+      return () => ipcRenderer.removeListener(CH.TERM_OUTPUT, handler);
+    },
+    onExit: (cb: (event: TermExitEvent) => void): (() => void) => {
+      const handler = (_evt: unknown, event: TermExitEvent): void => cb(event);
+      ipcRenderer.on(CH.TERM_EXIT, handler);
+      return () => ipcRenderer.removeListener(CH.TERM_EXIT, handler);
+    },
   },
 
   onMenuCommand: (cb: (command: MenuCommand) => void): (() => void) => {

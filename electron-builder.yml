@@ -7,6 +7,9 @@ files:
   - package.json
   - '!**/*.map'
 asarUnpack: []
+# node-pty 为 N-API 预编译（prebuilds/ 跨 Node/Electron ABI 通用），
+# 无需 @electron/rebuild 重编译；本机也没有 node-gyp 构建链
+npmRebuild: false
 compression: maximum
 win:
   target:

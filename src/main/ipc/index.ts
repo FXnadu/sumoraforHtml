@@ -1,21 +1,23 @@
 import { dialog, ipcMain } from 'electron';
 import { CH } from '../../shared/ipc-channels';
-import type { AiSessionEvent, Settings } from '../../shared/types';
-import { registerAiIpc } from './ai.ipc';
+import type { Settings, TermExitEvent, TermOutputEvent } from '../../shared/types';
 import { registerFileIpc } from './file.ipc';
 import { registerNoteIpc } from './note.ipc';
 import { registerPluginIpc } from './plugin.ipc';
-import { setAgentEventSink } from '../services/agentRunner';
+import { registerTerminalIpc, validateCliCommand } from './terminal.ipc';
 import { getSettings, setSettings } from '../services/settings';
+import { setTermEventSink } from '../services/ptyHost';
 import { setWindowDirty } from '../window-state';
 
-/** 统一注册所有 IPC handler。sendAiEvent 由 index.ts 提供，指向主窗口。 */
-export function registerAllIpc(options: { sendAiEvent: (event: AiSessionEvent) => void }): void {
+/** 统一注册所有 IPC handler。sendTermEvent 由 index.ts 提供，指向主窗口。 */
+export function registerAllIpc(options: {
+  sendTermEvent: (event: TermOutputEvent | TermExitEvent) => void;
+}): void {
   registerFileIpc();
   registerNoteIpc();
   registerPluginIpc();
-  registerAiIpc();
-  setAgentEventSink(options.sendAiEvent);
+  registerTerminalIpc();
+  setTermEventSink(options.sendTermEvent);
 
   ipcMain.handle(CH.PICK_LIBRARY, async () => {
     const result = await dialog.showOpenDialog({
@@ -37,6 +39,7 @@ export function registerAllIpc(options: { sendAiEvent: (event: AiSessionEvent) =
       if (typeof patch.editMode === 'boolean') safe.editMode = patch.editMode;
       if (typeof patch.autoSave === 'boolean') safe.autoSave = patch.autoSave;
       if (typeof patch.backupOnSave === 'boolean') safe.backupOnSave = patch.backupOnSave;
+      if (typeof patch.cliCommand === 'string') safe.cliCommand = validateCliCommand(patch.cliCommand);
     }
     return setSettings(safe);
   });

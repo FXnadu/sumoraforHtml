@@ -22,10 +22,6 @@ interface IpcMessageEvent extends Event {
  * 笔记渲染容器。
  * 只作为浏览器窗口加载 note:// 地址；编辑能力由主进程强制挂载的 webview preload 提供，
  * 宿主本身不向笔记注入任何脚本。
- *
- * 【恢复副本】原位于 src/renderer/components/NotePane.tsx，2026-10-24 误删后逐字恢复。
- * 相对旧基线：import 增加 PickedElementPayload / handlePickResult；
- * 增加 handlePickResultMessage 辅助函数；ipc-message 分发增加 AI_PICKED / AI_PICK_CANCELLED 两支。
  */
 export default function NotePane(): JSX.Element {
   const srcUrl = useEditorStore((s) => s.srcUrl);

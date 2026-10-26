@@ -19,9 +19,18 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto;
   height: 100%;
+}
+
+/* 终端面板展开时加第三列 */
+.app.term-open {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+}
+
+.app.sidebar-collapsed.term-open {
+  grid-template-columns: 0 minmax(0, 1fr) auto;
 }
 
 /* ── 侧栏 ─────────────────────────────── */
@@ -38,22 +47,22 @@ body {
 
 /* 折叠侧边栏：整列收成 0 宽，内容区占满窗口 */
 .app.sidebar-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr) auto;
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 .app.sidebar-collapsed .sidebar {
   display: none;
 }
 
-/* AI 右栏（docs/06）：容器属内核，内容由 core.ai 插件贡献 */
+/* ── 内嵌终端面板：容器属内核，PTY 会话见 main/services/ptyHost.ts ── */
 
-.ai-panel {
+.term-panel {
   grid-column: 3;
   grid-row: 1 / -1;
   min-height: 0;
-  width: var(--ai-panel-width);
-  min-width: 280px;
-  max-width: min(560px, 45vw);
+  width: var(--term-panel-width);
+  min-width: 360px;
+  max-width: min(720px, 55vw);
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
   display: flex;
@@ -432,17 +441,6 @@ body {
   gap: 6px;
   padding: 8px 8px 8px 10px;
   border-bottom: 1px solid var(--border);
-}
-
-.sidebar-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .explorer {
@@ -829,6 +827,28 @@ body {
   height: 16px;
   accent-color: var(--accent);
 }
+
+/* 文本输入的设置行：标签在上、输入框铺满下一行 */
+.settings-row.settings-row-column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.settings-row input[type='text'] {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.settings-row input[type='text']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
 /*
  * 统一滚动条外观：细圆角滑块 + 透明轨道 + 悬停加深。
  * 同时用于宿主界面与笔记 webview（通过 insertCSS 注入），
@@ -868,20 +888,21 @@ body {
   width: 0;
   height: 0;
 }
-/* ── AI 助手面板（core.ai 插件，docs/06）── */
 
 .status-btn.push-right {
   margin-left: auto;
 }
 
-.ai-chat {
+/* ── 内嵌终端面板 ─────────────────────────────────── */
+
+.term-panel-body {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-.ai-chat-header {
+.term-header {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -890,7 +911,7 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.ai-chat-title {
+.term-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -900,233 +921,95 @@ body {
   font-weight: 600;
 }
 
-.ai-chat-agent-select {
-  max-width: 130px;
-  padding: 3px 6px;
+.term-btn {
+  flex: 0 0 auto;
+  padding: 2px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-panel);
+  background: var(--bg-app);
   color: var(--text-primary);
   font-size: 12px;
-  outline: none;
-}
-
-.ai-chat-messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ai-msg {
-  max-width: 100%;
-  padding: 7px 9px;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.ai-msg.user {
-  align-self: flex-end;
-  max-width: 92%;
-  background: var(--bg-selected);
-  color: var(--text-primary);
-}
-
-.ai-msg.assistant {
-  align-self: flex-start;
-  max-width: 100%;
-  background: var(--bg-hover);
-}
-
-.ai-msg.system {
-  align-self: center;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.ai-msg.error {
-  align-self: flex-start;
-  background: transparent;
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  font-size: 12px;
-}
-
-.ai-msg .ai-msg-status {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.ai-composer {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--border);
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ai-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.ai-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.ai-chip-tag {
-  font-family: ui-monospace, Consolas, monospace;
-  color: var(--accent);
-}
-
-.ai-chip-size {
-  color: var(--text-muted);
-}
-
-.ai-chip-remove {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1;
   cursor: pointer;
 }
 
-.ai-chip-remove:hover {
-  color: var(--danger);
+.term-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 
-.ai-composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.ai-input {
-  flex: 1;
-  min-height: 52px;
-  max-height: 160px;
-  resize: none;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
-  outline: none;
-}
-
-.ai-input:focus {
-  border-color: var(--accent);
-}
-
-.ai-send-btn {
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ai-send-btn:disabled {
-  opacity: 0.45;
+.term-btn:disabled {
+  opacity: 0.5;
   cursor: default;
 }
 
-.ai-empty {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.ai-empty h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.ai-empty code {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--bg-hover);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-}
-
-.ai-empty-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.ai-empty-btn {
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.ai-empty-btn:hover {
-  background: var(--bg-hover);
-}
-
-.ai-notice {
+.term-chips {
   flex: 0 0 auto;
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 8px 10px 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-hover);
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.5;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
 }
 
-.ai-notice-close {
-  margin-left: auto;
-  padding: 0;
+.term-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-app);
+  font-size: 12px;
+}
+
+.term-chip-tag {
+  color: var(--accent);
+  font-family: Consolas, 'Courier New', monospace;
+}
+
+.term-chip-file {
+  color: var(--text-muted);
+  font-size: 11px;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.term-chip-remove {
+  padding: 0 2px;
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
 }
+
+.term-chip-remove:hover {
+  color: var(--danger);
+}
+
+.term-exited {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.term-xterm {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 6px;
+  background: #1e1e1e;
+}
+
+.term-xterm .xterm {
+  height: 100%;
+}
+
+.term-xterm .xterm-viewport {
+  /* 面板底色即终端底色，避免滚动条区域露白 */
+  background-color: #1e1e1e;
+}
+

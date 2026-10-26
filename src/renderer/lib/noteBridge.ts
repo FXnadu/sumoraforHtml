@@ -83,7 +83,7 @@ export function sendMarkClean(): void {
   }
 }
 
-// ── 元素拾取（docs/06 §5）──────────────────────────────────
+// ── 元素拾取 ───────────────────────────────────────────
 
 /** 拾取等待中的 resolve；同一时刻至多一个 */
 let pendingPick: ((value: PickedElement | null) => void) | null = null;
@@ -121,9 +121,3 @@ export function stopPick(): void {
   }
   handlePickResult(null);
 }
-
-/**
- * 【恢复副本】原位于 src/renderer/lib/noteBridge.ts，2026-10-24 误删后逐字恢复。
- * 此版本 = 误删前最终状态：在 M0/插件期地基上追加了文件尾部的「元素拾取」段
- * 与 detachWebview 里的拾取落定。若从旧基线恢复，重放这两处即可。
- */

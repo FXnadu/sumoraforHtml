@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useDeferredValue, useMemo, useRef } from 'react';
 import { highlightHtml } from '../lib/html-highlight';
 import { useEditorStore } from '../store/editorStore';
 
@@ -9,8 +9,11 @@ export default function SourceEditor(): JSX.Element {
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
 
-  const highlighted = useMemo(() => highlightHtml(rawHtml), [rawHtml]);
-  const lineCount = useMemo(() => rawHtml.split('\n').length, [rawHtml]);
+  // 高亮层与行号槽跟随延迟值：textarea 即时响应击键，
+  // 全文重高亮被推迟到空闲时段，大文件打字不再被整段重算卡住
+  const deferredHtml = useDeferredValue(rawHtml);
+  const highlighted = useMemo(() => highlightHtml(deferredHtml), [deferredHtml]);
+  const lineCount = useMemo(() => deferredHtml.split('\n').length, [deferredHtml]);
 
   const syncScroll = (event: React.UIEvent<HTMLTextAreaElement>): void => {
     const layer = highlightRef.current;

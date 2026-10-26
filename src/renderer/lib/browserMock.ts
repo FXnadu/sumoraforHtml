@@ -84,16 +84,16 @@ export function installBrowserMock(): void {
     onMenuCommand: () => () => undefined,
     onFileChange: () => () => undefined,
 
-    // 浏览器预览模式没有本地 Agent：探测恒为空、会话不可开，与宿主侧安全兜底一致
-    ai: {
-      detect: async () => [],
-      startSession: async () => {
+    // 浏览器预览模式没有本地 PTY：会话不可创建，与宿主侧安全兜底一致
+    terminal: {
+      create: async () => {
         throw new Error('当前环境不可用（浏览器预览模式）');
       },
-      send: () => undefined,
-      stop: async () => undefined,
-      onEvent: () => () => undefined,
-      openTerminal: async () => ({ ok: false }),
+      input: () => undefined,
+      resize: () => undefined,
+      kill: async () => undefined,
+      onOutput: () => () => undefined,
+      onExit: () => () => undefined,
     },
 
     getPluginState: async () => ({

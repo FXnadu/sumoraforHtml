@@ -1,10 +1,4 @@
-/** 跨进程共享类型。主进程 / preload / 渲染进程共用，修改需同步更新架构文档 IPC 契约表。
- *
- * 【恢复副本】原位于 src/shared/types.ts，2026-10-24 误删后逐字恢复。
- * 此版本 = 误删前最终状态。注意：FileNode / ReadResult / SaveRequest 等地基类型
- * 与 M0 基线一致；文件尾部的 AI 类型块（AgentInfo / AiSessionEvent /
- * AiSessionStartOptions / PickedElementPayload / PickedElement）与 MenuCommand
- * 的 'toggle-ai-panel' 是本次新增。若从 GitHub M0 基线恢复，只需重放这两处差异。 */
+/** 跨进程共享类型。主进程 / preload / 渲染进程共用，修改需同步更新架构文档 IPC 契约表。 */
 
 /** 文件树节点 */
 export interface FileNode {
@@ -95,6 +89,8 @@ export interface Settings {
   editMode: boolean;
   autoSave: boolean;
   backupOnSave: boolean;
+  /** 内嵌终端面板创建会话时运行的 CLI 命令（如 'pi'、'claude'）；留空打开普通命令行 */
+  cliCommand: string;
 }
 
 /** 原生菜单 → 渲染进程的命令 */
@@ -106,7 +102,7 @@ export type MenuCommand =
   | 'refresh-library'
   | 'toggle-sidebar'
   | 'toggle-source'
-  | 'toggle-ai-panel'
+  | 'toggle-terminal'
   | 'open-settings';
 
 /** 打开笔记的结果；libraryRoot 可能是顺带切换后的新根目录 */
@@ -132,43 +128,10 @@ export const DEFAULT_SETTINGS: Settings = {
   editMode: true,
   autoSave: false,
   backupOnSave: true,
+  cliCommand: '',
 };
 
-// ── AI 侧边栏（本地 CLI Agent 壳，docs/06）─────────────────────────
-// 定位：应用自身不发起任何 AI 网络请求；AI 能力来自用户自装的 CLI Agent，
-// 主进程只负责在本机 spawn 子进程并转发 stdio。
-
-/** 探测到的本地 Agent */
-export interface AgentInfo {
-  /** 适配器 id（如 'claude-code'） */
-  adapterId: string;
-  name: string;
-  /** 可执行文件是否可用（PATH 与常见安装目录探测） */
-  available: boolean;
-  version?: string;
-  /** 探测到的可执行文件路径 */
-  source?: string;
-}
-
-/** Agent 会话事件（主进程 → 渲染进程单向推送） */
-export type AiSessionEvent =
-  | { type: 'started'; sessionId: string }
-  | { type: 'delta'; sessionId: string; text: string }
-  | { type: 'status'; sessionId: string; text: string }
-  | { type: 'complete'; sessionId: string; text: string }
-  | { type: 'error'; sessionId: string; message: string }
-  | { type: 'exit'; sessionId: string; code: number | null };
-
-/** 会话启动参数。cwd 由主进程解析并校验，渲染层无权指定任意目录（约束 5） */
-export interface AiSessionStartOptions {
-  adapterId: string;
-  /** 会话绑定的笔记绝对路径（须位于笔记库内） */
-  notePath: string;
-  /** 工作目录范围：笔记所在目录（默认，权限面最小）或笔记库根 */
-  cwdScope: 'note-dir' | 'library-root';
-  /** 上下文附上方式：path 只附路径让 Agent 自读；inline 附全文（截断至上限） */
-  attach: { mode: 'path' | 'inline'; maxInlineKB?: number };
-}
+// ── 元素拾取（笔记 → 终端上下文）──────────────────────────────
 
 /** webview 拾取回传的原始载荷（notePath 由宿主侧补齐） */
 export interface PickedElementPayload {
@@ -179,7 +142,28 @@ export interface PickedElementPayload {
   sizeBytes: number;
 }
 
-/** 拾取结果（插件视角，含所属笔记路径） */
+/** 拾取结果（面板视角，含所属笔记路径） */
 export interface PickedElement extends PickedElementPayload {
   notePath: string;
+}
+
+/** 终端会话创建结果 */
+export interface TermSessionInfo {
+  sessionId: string;
+  /** 会话工作目录（笔记所在目录或笔记库根） */
+  cwd: string;
+  /** 用户配置的启动命令；null 表示普通命令行 */
+  command: string | null;
+}
+
+/** 终端输出事件（主进程 → 渲染进程） */
+export interface TermOutputEvent {
+  sessionId: string;
+  data: string;
+}
+
+/** 终端进程退出事件（主进程 → 渲染进程） */
+export interface TermExitEvent {
+  sessionId: string;
+  code: number;
 }

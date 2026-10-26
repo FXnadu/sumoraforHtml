@@ -10,7 +10,6 @@ import type {
   UiSlotId,
 } from './types';
 import { offKernelEventsOf, onKernelEvent, replayKernelEventToOwner } from './events';
-import { aiApi } from './ai';
 import {
   clearCommandsForTest,
   executeCommand,
@@ -203,7 +202,6 @@ function buildContext(plugin: NoteDeskPlugin): PluginContext {
         return { path: result.path, html: result.html, encoding: result.encoding };
       },
     },
-    ai: aiApi,
     storage: {
       get: <T,>(key: string) => window.noteDesk.pluginStorageGet(id, key) as Promise<T | null>,
       set: (key: string, value: unknown) => window.noteDesk.pluginStorageSet(id, key, value),

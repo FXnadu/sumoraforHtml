@@ -2,11 +2,11 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, Menu, protocol, shell } from 'electron';
 import type { MenuItemConstructorOptions, WebContents } from 'electron';
 import { CH } from '../shared/ipc-channels';
-import type { AiSessionEvent, MenuCommand } from '../shared/types';
+import type { MenuCommand } from '../shared/types';
 import { registerNoteProtocol } from './protocol';
 import { registerAllIpc } from './ipc';
 import { webviewPreloadPath } from './paths';
-import { stopAllSessions } from './services/agentRunner';
+import { killAllSessions } from './services/ptyHost';
 import { getLibraryRoot } from './services/settings';
 import { isWindowDirty, setWindowDirty } from './window-state';
 
@@ -25,6 +25,13 @@ protocol.registerSchemesAsPrivileged([
     privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: false },
   },
 ]);
+
+// GPU 进程异常退出时留痕：配合 --enable-logging 可定位「拖动窗口内容变形跟不上」类问题
+app.on('child-process-gone', (_event, details) => {
+  if (details.type === 'GPU') {
+    console.error('[gpu] GPU 进程异常退出:', details.reason, `exitCode=${String(details.exitCode)}`);
+  }
+});
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -105,9 +112,9 @@ function buildAppMenu(): Menu {
           click: () => sendMenuCommand('toggle-source'),
         },
         {
-          label: 'AI 助手',
+          label: '终端面板',
           accelerator: 'CmdOrCtrl+Shift+A',
-          click: () => sendMenuCommand('toggle-ai-panel'),
+          click: () => sendMenuCommand('toggle-terminal'),
         },
         { type: 'separator' },
         { role: 'reload', label: '重新加载' },
@@ -238,6 +245,10 @@ async function createWindow(): Promise<void> {
   hardenWindow(mainWindow.webContents);
   hardenWebview(mainWindow.webContents);
   guardUnsavedOnClose(mainWindow);
+  // 窗口销毁后置空引用，事件源（PTY 等）不能再拿到已销毁的窗口
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 
   const devUrl = process.env['MAIN_WINDOW_VITE_DEV_SERVER_URL'] ?? process.env['ELECTRON_RENDERER_URL'];
   if (devUrl) {
@@ -258,12 +269,17 @@ if (app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     try {
+      // 启动时输出一次 GPU 能力状态：gpu_compositing=software 即掉到了软件渲染（拖动窗口会变形卡顿）
+      console.log('[gpu] GPU 状态:', JSON.stringify(app.getGPUFeatureStatus()));
       Menu.setApplicationMenu(buildAppMenu());
       registerNoteProtocol();
       registerAllIpc({
-        // Agent 会话事件统一推到主窗口（约束 6：渲染层只能经事件流感知子进程）
-        sendAiEvent: (event: AiSessionEvent) => {
-          mainWindow?.webContents.send(CH.AI_EVENT, event);
+        // 终端输出/退出事件统一推到主窗口（渲染层只能经事件流感知 PTY）
+        sendTermEvent: (event) => {
+          // 退出时窗口可能已销毁而 PTY 仍在推送，此时直接丢弃，避免主进程未捕获异常
+          if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+          if ('data' in event) mainWindow.webContents.send(CH.TERM_OUTPUT, event);
+          else mainWindow.webContents.send(CH.TERM_EXIT, event);
         },
       });
       await createWindow();
@@ -285,7 +301,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// 退出前杀掉全部 Agent 子进程，防孤儿（约束 12）
+// 退出前杀掉全部 PTY 进程，防孤儿
 app.on('before-quit', () => {
-  stopAllSessions();
+  killAllSessions();
 });

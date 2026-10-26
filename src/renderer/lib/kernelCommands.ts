@@ -3,19 +3,14 @@ import { toMessage } from './ipcError';
 import type { PickNoteResult } from '../../shared/types';
 import { useEditorStore } from '../store/editorStore';
 import { useLibraryStore } from '../store/libraryStore';
-
 /**
  * 内核命令注册表：原生菜单命令与插件可调用的内核能力统一注册到这里。
  * 菜单命令 id 与 MenuCommand 字符串一致；暴露给插件的能力用 'kernel.' 前缀。
- *
- * 【恢复副本】原位于 src/renderer/lib/kernelCommands.ts，2026-10-24 误删后逐字恢复。
- * 相对旧基线：registerKernelCommands 参数增加 toggleAiPanel；
- * 命令表新增 'toggle-ai-panel' 一行。
  */
 export function registerKernelCommands(options: {
   toggleSidebar: () => void;
   openSettings: () => void;
-  toggleAiPanel: () => void;
+  toggleTerminal: () => void;
 }): void {
   registerCommand('open-note', 'kernel', () => pickAndOpenNote());
   registerCommand('open-folder', 'kernel', () => useLibraryStore.getState().pickLibrary());
@@ -24,7 +19,7 @@ export function registerKernelCommands(options: {
   registerCommand('refresh-library', 'kernel', () => useLibraryStore.getState().refresh());
   registerCommand('toggle-source', 'kernel', () => useEditorStore.getState().toggleSource());
   registerCommand('toggle-sidebar', 'kernel', options.toggleSidebar);
-  registerCommand('toggle-ai-panel', 'kernel', options.toggleAiPanel);
+  registerCommand('toggle-terminal', 'kernel', options.toggleTerminal);
   registerCommand('open-settings', 'kernel', options.openSettings);
 
   // 插件可调用的内核能力：在当前笔记库内打开指定笔记（recent / search 都用它）
@@ -37,8 +32,7 @@ export function registerKernelCommands(options: {
     void useEditorStore.getState().open(path, root);
   });
 
-  // 插件可调用的内核能力：查询当前笔记状态。
-  // 插件激活晚于 note:opened 时（激活竞态），core.ai 等插件用它做初始同步。
+  // 插件可调用的内核能力：查询当前笔记状态（激活晚于 note:opened 时做初始同步）
   registerCommand(
     'kernel.get-note-state',
     'kernel',
