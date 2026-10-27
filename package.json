@@ -1,6 +1,6 @@
 {
   "name": "sumorw",
-  "version": "0.0.0",
+  "version": "0.1.0-preview.1",
   "description": "像 Typora 管理 Markdown 一样管理 HTML 笔记：文件树切换、应用内阅读、点文字即改，且不破坏 HTML 结构",
   "main": "./out/main/index.js",
   "author": "sumorw",

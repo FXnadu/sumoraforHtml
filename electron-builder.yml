@@ -27,3 +27,20 @@ nsis:
   artifactName: ${productName}-Setup-${version}.${ext}
 portable:
   artifactName: ${productName}-Portable-${version}.${ext}
+# macOS：dmg/zip 只能在 Mac 上构建（Electron 无法交叉打包），在 macOS 上 npm run dist 即可
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+  # 预览版不做签名/公证（无 Apple 开发者证书时构建会失败）；
+  # 正式分发时删除下面这行，改用 CSC_LINK / CSC_KEY_PASSWORD 环境变量提供证书
+  identity: null
+  fileAssociations:
+    - ext: html
+      name: HTML 笔记
+      description: HTML 笔记文件
+dmg:
+  artifactName: ${productName}-${version}-mac.${ext}
+zip:
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
